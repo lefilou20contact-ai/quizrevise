@@ -77,28 +77,53 @@ function draw(){nav();if(!$("#kb").innerHTML)keyUI();
    start(shuf(p).slice(0,S.n),`${S.mat} · ${S.lvl}`)}}
  else if(tab===1){V.innerHTML=form(true);$("#go").onclick=()=>{read();gen(S.mat,S.lvl,S.n,S.topic,`${S.mat} · ${S.lvl}`)}}
  else devoirs()}
-let KEY="";try{KEY=localStorage.getItem("k")||""}catch(e){}
+const P={
+anthropic:{n:"Anthropic (Claude)",m:"claude-haiku-4-5-20251001"},
+openai:{n:"OpenAI (ChatGPT)",u:"https://api.openai.com/v1/chat/completions",m:"gpt-4o-mini"},
+gemini:{n:"Google Gemini",m:"gemini-2.5-flash"},
+mistral:{n:"Mistral",u:"https://api.mistral.ai/v1/chat/completions",m:"mistral-small-latest"},
+groq:{n:"Groq",u:"https://api.groq.com/openai/v1/chat/completions",m:"llama-3.3-70b-versatile"},
+openrouter:{n:"OpenRouter",u:"https://openrouter.ai/api/v1/chat/completions",m:"openai/gpt-4o-mini"},
+custom:{n:"Autre (compatible OpenAI)",u:"",m:""}};
+let C={p:"anthropic",k:"",m:"",u:""};try{C={...C,...JSON.parse(localStorage.getItem("cfg")||"{}")}}catch(e){}
+const detect=k=>k.startsWith("sk-ant")?"anthropic":k.startsWith("sk-or")?"openrouter":k.startsWith("gsk_")?"groq":k.startsWith("AIza")?"gemini":k.startsWith("sk-")?"openai":null;
 async function ai(){
- if(KEY)return{json:async p=>{
-  const r=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"content-type":"application/json","x-api-key":KEY,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},body:JSON.stringify({model:"claude-haiku-4-5-20251001",max_tokens:4000,messages:[{role:"user",content:p}]})});
-  if(!r.ok)throw new Error("HTTP "+r.status);
-  const d=await r.json();const t=d.content.map(x=>x.text||"").join("").replace(/```json|```/g,"").trim();
-  const m=t.match(/[\[{][\s\S]*[\]}]/);return JSON.parse(m?m[0]:t)}};
+ if(C.k)return{json:async pr=>{
+  const d=P[C.p],m=C.m||d.m;let r,j,t;
+  const H={"content-type":"application/json"};
+  if(C.p==="anthropic"){
+   r=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{...H,"x-api-key":C.k,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},body:JSON.stringify({model:m,max_tokens:4000,messages:[{role:"user",content:pr}]})});
+   j=await r.json();if(!r.ok)throw new Error(r.status+" "+(j.error?.message||""));t=j.content.map(x=>x.text||"").join("")}
+  else if(C.p==="gemini"){
+   r=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(m)}:generateContent?key=${encodeURIComponent(C.k)}`,{method:"POST",headers:H,body:JSON.stringify({contents:[{parts:[{text:pr}]}]})});
+   j=await r.json();if(!r.ok)throw new Error(r.status+" "+(j.error?.message||""));t=j.candidates[0].content.parts.map(x=>x.text||"").join("")}
+  else{
+   const u=C.p==="custom"?C.u:d.u;if(!u)throw new Error("URL manquante");
+   r=await fetch(u,{method:"POST",headers:{...H,authorization:"Bearer "+C.k},body:JSON.stringify({model:m,messages:[{role:"user",content:pr}]})});
+   j=await r.json();if(!r.ok)throw new Error(r.status+" "+(j.error?.message||""));t=j.choices[0].message.content}
+  t=t.replace(/```json|```/g,"").trim();const x=t.match(/[\[{][\s\S]*[\]}]/);return JSON.parse(x?x[0]:t)}};
  try{if(window.claude)return await window.claude.use("sample")}catch(e){}
  return null}
-function keyUI(){const k=$("#kb");k.innerHTML=`<details class="c"${KEY?"":" open"}><summary><b>🔑 Clé API ${KEY?"(enregistrée ✓)":"(requise pour l'IA)"}</b></summary>
- <label>Ta clé API Anthropic</label><input id="ki" type="password" placeholder="sk-ant-..." autocomplete="off" value="${KEY}">
+function keyUI(){const k=$("#kb");
+ k.innerHTML=`<details class="c"${C.k?"":" open"}><summary><b>🔑 Clé API ${C.k?"("+P[C.p].n+" ✓)":"(requise pour l'IA)"}</b></summary>
+ <label>Ta clé API (n'importe quel fournisseur)</label><input id="ki" type="password" autocomplete="off" placeholder="Colle ta clé ici" value="${C.k.replace(/"/g,"")}">
+ <label>Fournisseur (détecté automatiquement)</label><select id="kp">${Object.entries(P).map(([i,v])=>`<option value="${i}"${i===C.p?" selected":""}>${v.n}</option>`).join("")}</select>
+ <label>Modèle (facultatif)</label><input id="km" placeholder="" value="${C.m.replace(/"/g,"")}">
+ <div id="kuw"><label>URL de l'API (chat/completions)</label><input id="ku" placeholder="https://.../v1/chat/completions" value="${C.u.replace(/"/g,"")}"></div>
  <button class="b g" id="ks">Enregistrer</button><button class="b g" id="kd">Effacer</button>
- <p class="note">La clé reste uniquement dans ton navigateur et n'est envoyée qu'à api.anthropic.com. Chaque génération est facturée sur ton compte. Ne la partage jamais. Crée-la sur console.anthropic.com.</p></details>`;
- $("#ks").onclick=()=>{KEY=$("#ki").value.trim();try{localStorage.setItem("k",KEY)}catch(e){}keyUI()};
- $("#kd").onclick=()=>{KEY="";try{localStorage.removeItem("k")}catch(e){}keyUI()}}
+ <p class="note">La clé reste dans ton navigateur et n'est envoyée qu'au fournisseur choisi. Chaque génération est facturée sur ton compte. Ne la partage jamais. Si ça échoue, essaie un autre fournisseur : certains bloquent les appels depuis un navigateur.</p></details>`;
+ const sync=()=>{$("#km").placeholder=P[$("#kp").value].m||"nom du modèle";$("#kuw").style.display=$("#kp").value==="custom"?"block":"none"};
+ sync();$("#kp").onchange=sync;
+ $("#ki").oninput=()=>{const d=detect($("#ki").value.trim());if(d){$("#kp").value=d;sync()}};
+ $("#ks").onclick=()=>{C={p:$("#kp").value,k:$("#ki").value.trim(),m:$("#km").value.trim(),u:$("#ku").value.trim()};try{localStorage.setItem("cfg",JSON.stringify(C))}catch(e){}keyUI()};
+ $("#kd").onclick=()=>{C={p:"anthropic",k:"",m:"",u:""};try{localStorage.removeItem("cfg")}catch(e){}keyUI()}}
 async function gen(mat,lvl,n,topic,title,extra){
  const b=$("#go")||event?.target;if(b)b.disabled=true;const m=$("#msg");if(m)m.innerHTML=`<p class="note">Génération en cours… (5-60 s)</p>`;
  const s=await ai();if(!s){const t=`<p class="err">Ajoute ta clé API en haut de la page pour utiliser l'IA.</p>`;m?m.innerHTML=t:alert("IA indisponible");if(b)b.disabled=false;return}
  try{const r=await s.json(`Tu es un professeur français. Crée un QCM de ${n} questions, niveau ${lvl}, matière ${mat}${topic?`, sur : ${topic}`:""}.${extra?` Contexte du devoir : ${extra}`:""} Adapte-toi au programme français. Réponds UNIQUEMENT par un tableau JSON d'objets {"q":"question","o":["4 choix"],"a":indexBonneRéponse(0-3),"e":"explication courte"}.`,{cache:false});
   const qs=(Array.isArray(r)?r:r.questions||[]).filter(x=>x.q&&Array.isArray(x.o)&&x.o.length>=2&&Number.isInteger(x.a)&&x.o[x.a]!==undefined);
   if(!qs.length)throw 0;start(qs,title)}
- catch(e){if($("#msg"))$("#msg").innerHTML=`<p class="err">La génération a échoué (clé invalide, crédit épuisé ou erreur réseau). Vérifie ta clé et réessaie.</p>`;else alert("Échec de la génération");if(b)b.disabled=false}}
+ catch(e){if($("#msg"))$("#msg").innerHTML=`<p class="err">La génération a échoué (clé invalide, crédit épuisé ou erreur réseau). Vérifie ta clé et réessaie.<br>Détail : ${e&&e.message||"réponse inattendue"}</p>`;else alert("Échec de la génération");if(b)b.disabled=false}}
 function play(){const q=quiz.qs[quiz.i];
  if(quiz.done){const p=Math.round(100*quiz.sc/quiz.qs.length);
   V.innerHTML=`<div class="c"><div class="big">${quiz.sc}/${quiz.qs.length}</div><p style="text-align:center">${p>=80?"Excellent 🎉":p>=50?"Pas mal, continue 💪":"Pas grave, on retente ! 📖"}</p><button class="b" onclick="quiz=null;draw()">Nouveau quiz</button></div>`;return}
@@ -122,7 +147,7 @@ function devoirs(){
   try{const r=await s.json(`Voici le cahier de texte d'un élève français (${S.lvl}). Extrais chaque devoir ou leçon à réviser. Réponds UNIQUEMENT par un tableau JSON d'objets {"matiere":"","devoir":"description courte","date":"date si indiquée sinon vide","sujet":"notion à réviser"}.\n\n${t}`,{cache:false});
    const a=(Array.isArray(r)?r:r.devoirs||[]).filter(x=>x.devoir);if(!a.length)throw 0;
    hw=a.map(x=>({...x,lvl:S.lvl}));try{localStorage.setItem("hw",JSON.stringify(hw))}catch(e){}
-   $("#msg").innerHTML="";lst()}catch(e){$("#msg").innerHTML=`<p class="err">Analyse impossible. Réessaie.</p>`}b.disabled=false}}
+   $("#msg").innerHTML="";lst()}catch(e){$("#msg").innerHTML=`<p class="err">Analyse impossible. Réessaie.<br>Détail : ${e&&e.message||"réponse inattendue"}</p>`}b.disabled=false}}
 function lst(){const L=$("#list");if(!hw.length){L.innerHTML=`<span class="note">Aucun devoir analysé pour l'instant.</span>`;return}
  L.innerHTML="<b>Quiz proposés</b>"+hw.map((h,i)=>`<div class="hw"><div><span></span><small></small></div><button data-i="${i}">Quiz 5 Q</button></div>`).join("");
  L.querySelectorAll(".hw").forEach((r,i)=>{const h=hw[i];r.querySelector("span").textContent=`${h.matiere||"?"} — ${h.devoir}`;r.querySelector("small").textContent=[h.date,h.sujet&&"Révise : "+h.sujet].filter(Boolean).join(" · ");
