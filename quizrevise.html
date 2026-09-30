@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="fr"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>QuizRévise</title>
+<style>
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);--bg:#f6f5fb;--card:#fff;--tx:#1e1b2e;--mu:#6b6880;--ac:#5b4bdb;--ok:#1f9d61;--ko:#d6455d;--bd:#e3e0f0}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#15131f;--card:#201d2f;--tx:#f0eefa;--mu:#a09cb8;--ac:#8b7dff;--ok:#3ecf8e;--ko:#ff6b81;--bd:#332f47}}
+:root[data-theme="dark"]{--bg:#15131f;--card:#201d2f;--tx:#f0eefa;--mu:#a09cb8;--ac:#8b7dff;--ok:#3ecf8e;--ko:#ff6b81;--bd:#332f47}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--tx);font:16px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif}
+main{max-width:640px;margin:0 auto;padding:16px}
+h1{font-size:1.5rem;margin:8px 0 2px}p.s{color:var(--mu);margin:0 0 14px}
+nav{display:flex;gap:6px;margin:12px 0}nav button{flex:1;padding:10px 6px;border:1px solid var(--bd);background:var(--card);color:var(--tx);border-radius:10px;font:inherit;font-size:.9rem;cursor:pointer}
+nav button.on{background:var(--ac);color:#fff;border-color:var(--ac)}
+.c{background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:16px;margin-bottom:12px}
+label{display:block;font-size:.85rem;color:var(--mu);margin:10px 0 4px}
+select,input,textarea{width:100%;padding:10px;border-radius:10px;border:1px solid var(--bd);background:var(--bg);color:var(--tx);font:inherit}
+textarea{min-height:130px}
+.b{display:block;width:100%;padding:12px;border:0;border-radius:10px;background:var(--ac);color:#fff;font:inherit;font-weight:600;cursor:pointer;margin-top:14px}
+.b.g{background:transparent;color:var(--ac);border:1px solid var(--ac)}.b:disabled{opacity:.5}
+.o{display:block;width:100%;text-align:left;padding:12px;margin-top:8px;border:1px solid var(--bd);background:var(--bg);color:var(--tx);border-radius:10px;font:inherit;cursor:pointer}
+.o.ok{border-color:var(--ok);background:color-mix(in srgb,var(--ok) 18%,transparent)}.o.ko{border-color:var(--ko);background:color-mix(in srgb,var(--ko) 18%,transparent)}
+.bar{height:6px;background:var(--bd);border-radius:9px;overflow:hidden;margin-bottom:12px}.bar i{display:block;height:100%;background:var(--ac)}
+.ex{margin-top:10px;color:var(--mu);font-size:.9rem}.big{font-size:2.4rem;font-weight:700;text-align:center}
+.hw{display:flex;gap:10px;align-items:center;justify-content:space-between;border-top:1px solid var(--bd);padding:10px 0}.hw:first-child{border:0}
+.hw small{color:var(--mu);display:block}.hw button{padding:8px 12px;border-radius:8px;border:1px solid var(--ac);background:none;color:var(--ac);font:inherit;cursor:pointer;white-space:nowrap}
+.note{font-size:.82rem;color:var(--mu);margin-top:8px}.err{color:var(--ko);margin-top:8px}
+</style></head><body><main>
+<h1>📚 QuizRévise</h1><p class="s">Des quiz pour réviser, préparés ou générés par IA.</p>
+<nav id="nav"></nav><div id="v"></div>
+</main>
+<script>
+const LV=[["CP","p"],["CE1","p"],["CE2","p"],["CM1","p"],["CM2","p"],["6e","c"],["5e","c"],["4e","c"],["3e","c"],["2nde","l"],["1re","l"],["Terminale","l"]];
+const MAT=["Maths","Français","Histoire-Géo","Anglais","SVT","Physique-Chimie","Culture générale"];
+// Banque préparée : m=matière, c=cycles (p/c/l)
+const B=[
+{m:"Maths",c:"p",q:"Combien font 7 × 8 ?",o:["54","56","58","64"],a:1,e:"7 × 8 = 56."},
+{m:"Maths",c:"p",q:"Quel est le double de 35 ?",o:["60","65","70","75"],a:2,e:"35 + 35 = 70."},
+{m:"Maths",c:"c",q:"Quelle est la solution de 2x + 6 = 14 ?",o:["x = 3","x = 4","x = 5","x = 10"],a:1,e:"2x = 8 donc x = 4."},
+{m:"Maths",c:"c",q:"Aire d'un triangle de base 10 et hauteur 6 ?",o:["16","30","60","36"],a:1,e:"(10 × 6) / 2 = 30."},
+{m:"Maths",c:"l",q:"Dérivée de f(x) = x² ?",o:["x","2x","x²","2"],a:1,e:"(xⁿ)' = n·xⁿ⁻¹, donc 2x."},
+{m:"Maths",c:"l",q:"Discriminant de x² − 5x + 6 ?",o:["1","−1","25","49"],a:0,e:"Δ = 25 − 24 = 1."},
+{m:"Français",c:"p",q:"Quel est le pluriel de « un cheval » ?",o:["chevals","chevaux","chevalx","chevaus"],a:1,e:"Les noms en -al font -aux."},
+{m:"Français",c:"c",q:"Quelle phrase est au passé composé ?",o:["Il mangeait","Il a mangé","Il mangera","Il mange"],a:1,e:"Auxiliaire avoir + participe passé."},
+{m:"Français",c:"l",q:"Que désigne une antithèse ?",o:["Une répétition","Une comparaison","Une opposition de deux idées","Une exagération"],a:2,e:"Elle rapproche deux termes opposés."},
+{m:"Histoire-Géo",c:"c",q:"En quelle année débute la Révolution française ?",o:["1715","1789","1804","1848"],a:1,e:"1789 : prise de la Bastille."},
+{m:"Histoire-Géo",c:"l",q:"Quelle date marque la fin de la Seconde Guerre mondiale en Europe ?",o:["1943","1944","1945","1947"],a:2,e:"8 mai 1945."},
+{m:"Anglais",c:"c",q:"« I ___ to school every day. »",o:["go","goes","going","gone"],a:0,e:"Sujet « I » : go."},
+{m:"Anglais",c:"l",q:"Quel est le prétérit de « to buy » ?",o:["buyed","bought","boughten","buys"],a:1,e:"Verbe irrégulier : buy – bought – bought."},
+{m:"SVT",c:"c",q:"Quel organite réalise la photosynthèse ?",o:["Mitochondrie","Noyau","Chloroplaste","Vacuole"],a:2,e:"Les chloroplastes contiennent la chlorophylle."},
+{m:"SVT",c:"l",q:"Que porte l'ADN ?",o:["L'énergie","L'information génétique","L'oxygène","Les hormones"],a:1,e:"L'ADN contient les gènes."},
+{m:"Physique-Chimie",c:"c",q:"Unité de la tension électrique ?",o:["Ampère","Volt","Ohm","Watt"],a:1,e:"La tension se mesure en volts."},
+{m:"Physique-Chimie",c:"l",q:"Formule de la vitesse moyenne ?",o:["v = d × t","v = d / t","v = t / d","v = d + t"],a:1,e:"Distance divisée par durée."},
+{m:"Culture générale",c:"p",q:"Quelle est la capitale de la France ?",o:["Lyon","Marseille","Paris","Lille"],a:2,e:"Paris."},
+{m:"Culture générale",c:"c",q:"Quelle planète est la plus grande du système solaire ?",o:["Saturne","Jupiter","Neptune","Terre"],a:1,e:"Jupiter."},
+{m:"Culture générale",c:"l",q:"Qui a écrit « Les Misérables » ?",o:["Zola","Hugo","Balzac","Flaubert"],a:1,e:"Victor Hugo, 1862."}
+];
+const $=s=>document.querySelector(s);const V=$("#v");
+const opt=(a,sel)=>a.map(x=>`<option${x===sel?" selected":""}>${x}</option>`).join("");
+let tab=0,S={lvl:"6e",mat:"Maths",n:5,topic:""},quiz=null,hw=[];
+try{hw=JSON.parse(localStorage.getItem("hw")||"[]")}catch(e){}
+const cyc=l=>LV.find(x=>x[0]===l)[1];
+const shuf=a=>a.map(x=>[Math.random(),x]).sort((x,y)=>x[0]-y[0]).map(x=>x[1]);
+function nav(){$("#nav").innerHTML=["Quiz préparés","Quiz IA","Mes devoirs"].map((t,i)=>`<button class="${i===tab?"on":""}" onclick="tab=${i};quiz=null;draw()">${t}</button>`).join("")}
+function form(ai){return `<div class="c"><label>Niveau</label><select id="lvl">${opt(LV.map(x=>x[0]),S.lvl)}</select>
+<label>Matière</label><select id="mat">${opt(MAT,S.mat)}</select>
+${ai?`<label>Sujet précis (facultatif)</label><input id="top" placeholder="ex : les fractions, la Guerre froide…" value="${S.topic}">`:""}
+<label>Nombre de questions</label><select id="n">${opt([3,5,10,15,20],S.n)}</select>
+<button class="b" id="go">${ai?"✨ Générer avec l'IA":"Commencer"}</button><div id="msg"></div></div>`}
+function read(){S.lvl=$("#lvl").value;S.mat=$("#mat").value;S.n=+$("#n").value;if($("#top"))S.topic=$("#top").value}
+function start(qs,title){quiz={qs,i:0,sc:0,done:false,title};draw()}
+function draw(){nav();
+ if(quiz)return play();
+ if(tab===0){V.innerHTML=form(false)+`<p class="note">Banque intégrée. Si un niveau n'a pas assez de questions, utilise l'onglet IA.</p>`;
+  $("#go").onclick=()=>{read();let p=B.filter(q=>q.c===cyc(S.lvl)&&q.m===S.mat);
+   if(!p.length){$("#msg").innerHTML=`<p class="err">Pas de quiz préparé pour ce choix. Essaie l'onglet « Quiz IA ».</p>`;return}
+   start(shuf(p).slice(0,S.n),`${S.mat} · ${S.lvl}`)}}
+ else if(tab===1){V.innerHTML=form(true);$("#go").onclick=()=>{read();gen(S.mat,S.lvl,S.n,S.topic,`${S.mat} · ${S.lvl}`)}}
+ else devoirs()}
+async function ai(){try{const s=await claude.use("sample");return s}catch(e){return null}}
+async function gen(mat,lvl,n,topic,title,extra){
+ const b=$("#go")||event?.target;if(b)b.disabled=true;const m=$("#msg");if(m)m.innerHTML=`<p class="note">Génération en cours… (5-60 s)</p>`;
+ const s=await ai();if(!s){const t=`<p class="err">L'IA n'est pas disponible ici. Utilise les quiz préparés.</p>`;m?m.innerHTML=t:alert("IA indisponible");if(b)b.disabled=false;return}
+ try{const r=await s.json(`Tu es un professeur français. Crée un QCM de ${n} questions, niveau ${lvl}, matière ${mat}${topic?`, sur : ${topic}`:""}.${extra?` Contexte du devoir : ${extra}`:""} Adapte-toi au programme français. Réponds UNIQUEMENT par un tableau JSON d'objets {"q":"question","o":["4 choix"],"a":indexBonneRéponse(0-3),"e":"explication courte"}.`,{cache:false});
+  const qs=(Array.isArray(r)?r:r.questions||[]).filter(x=>x.q&&Array.isArray(x.o)&&x.o.length>=2&&Number.isInteger(x.a)&&x.o[x.a]!==undefined);
+  if(!qs.length)throw 0;start(qs,title)}
+ catch(e){if($("#msg"))$("#msg").innerHTML=`<p class="err">La génération a échoué ou a été refusée. Réessaie.</p>`;else alert("Échec de la génération");if(b)b.disabled=false}}
+function play(){const q=quiz.qs[quiz.i];
+ if(quiz.done){const p=Math.round(100*quiz.sc/quiz.qs.length);
+  V.innerHTML=`<div class="c"><div class="big">${quiz.sc}/${quiz.qs.length}</div><p style="text-align:center">${p>=80?"Excellent 🎉":p>=50?"Pas mal, continue 💪":"Pas grave, on retente ! 📖"}</p><button class="b" onclick="quiz=null;draw()">Nouveau quiz</button></div>`;return}
+ V.innerHTML=`<div class="c"><div class="note" style="margin:0 0 6px">${quiz.title} · ${quiz.i+1}/${quiz.qs.length}</div><div class="bar"><i style="width:${100*quiz.i/quiz.qs.length}%"></i></div>
+ <b></b>${q.o.map((_,j)=>`<button class="o" data-j="${j}"></button>`).join("")}<div id="fb"></div></div>`;
+ V.querySelector("b").textContent=q.q;
+ V.querySelectorAll(".o").forEach(el=>{el.textContent=q.o[+el.dataset.j];el.onclick=()=>{
+  V.querySelectorAll(".o").forEach(x=>{x.disabled=true;if(+x.dataset.j===q.a)x.classList.add("ok")});
+  if(+el.dataset.j===q.a)quiz.sc++;else el.classList.add("ko");
+  const f=$("#fb");f.innerHTML=`<div class="ex"></div><button class="b">${quiz.i+1<quiz.qs.length?"Suivant":"Voir le score"}</button>`;
+  f.firstChild.textContent=q.e||"";f.lastChild.onclick=()=>{quiz.i++;if(quiz.i>=quiz.qs.length)quiz.done=true;draw()}}})}
+function devoirs(){
+ V.innerHTML=`<div class="c"><b>Analyse de tes devoirs</b><p class="note">Colle ici le contenu de ton cahier de texte (copié depuis Pronote ou ÉcoleDirecte). L'IA repère les devoirs et te propose un quiz pour chacun.</p>
+ <label>Niveau</label><select id="lvl">${opt(LV.map(x=>x[0]),S.lvl)}</select>
+ <label>Devoirs à faire / leçons</label><textarea id="t" placeholder="ex : Maths – exercices 12 et 15 p.84 sur le théorème de Pythagore pour vendredi&#10;Histoire – apprendre la leçon sur la Révolution française"></textarea>
+ <button class="b" id="an">🔍 Analyser mes devoirs</button><div id="msg"></div></div><div class="c" id="list"></div>`;
+ lst();
+ $("#an").onclick=async()=>{S.lvl=$("#lvl").value;const t=$("#t").value.trim();if(!t)return;
+  const b=$("#an");b.disabled=true;$("#msg").innerHTML=`<p class="note">Analyse en cours…</p>`;
+  const s=await ai();if(!s){$("#msg").innerHTML=`<p class="err">L'IA n'est pas disponible ici.</p>`;b.disabled=false;return}
+  try{const r=await s.json(`Voici le cahier de texte d'un élève français (${S.lvl}). Extrais chaque devoir ou leçon à réviser. Réponds UNIQUEMENT par un tableau JSON d'objets {"matiere":"","devoir":"description courte","date":"date si indiquée sinon vide","sujet":"notion à réviser"}.\n\n${t}`,{cache:false});
+   const a=(Array.isArray(r)?r:r.devoirs||[]).filter(x=>x.devoir);if(!a.length)throw 0;
+   hw=a.map(x=>({...x,lvl:S.lvl}));try{localStorage.setItem("hw",JSON.stringify(hw))}catch(e){}
+   $("#msg").innerHTML="";lst()}catch(e){$("#msg").innerHTML=`<p class="err">Analyse impossible. Réessaie.</p>`}b.disabled=false}}
+function lst(){const L=$("#list");if(!hw.length){L.innerHTML=`<span class="note">Aucun devoir analysé pour l'instant.</span>`;return}
+ L.innerHTML="<b>Quiz proposés</b>"+hw.map((h,i)=>`<div class="hw"><div><span></span><small></small></div><button data-i="${i}">Quiz 5 Q</button></div>`).join("");
+ L.querySelectorAll(".hw").forEach((r,i)=>{const h=hw[i];r.querySelector("span").textContent=`${h.matiere||"?"} — ${h.devoir}`;r.querySelector("small").textContent=[h.date,h.sujet&&"Révise : "+h.sujet].filter(Boolean).join(" · ");
+  r.querySelector("button").onclick=e=>gen(h.matiere||"Général",h.lvl,5,h.sujet,`Devoir : ${h.matiere||""}`,h.devoir)})}
+draw();
+</script></body></html>
