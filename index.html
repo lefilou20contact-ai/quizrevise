@@ -27,7 +27,7 @@ textarea{min-height:130px}
 .note{font-size:.82rem;color:var(--mu);margin-top:8px}.err{color:var(--ko);margin-top:8px}
 </style></head><body><main>
 <h1>📚 QuizRévise</h1><p class="s">Des quiz pour réviser, préparés ou générés par IA.</p>
-<nav id="nav"></nav><div id="v"></div>
+<div id="kb"></div><nav id="nav"></nav><div id="v"></div>
 </main>
 <script>
 const LV=[["CP","p"],["CE1","p"],["CE2","p"],["CM1","p"],["CM2","p"],["6e","c"],["5e","c"],["4e","c"],["3e","c"],["2nde","l"],["1re","l"],["Terminale","l"]];
@@ -69,7 +69,7 @@ ${ai?`<label>Sujet précis (facultatif)</label><input id="top" placeholder="ex :
 <button class="b" id="go">${ai?"✨ Générer avec l'IA":"Commencer"}</button><div id="msg"></div></div>`}
 function read(){S.lvl=$("#lvl").value;S.mat=$("#mat").value;S.n=+$("#n").value;if($("#top"))S.topic=$("#top").value}
 function start(qs,title){quiz={qs,i:0,sc:0,done:false,title};draw()}
-function draw(){nav();
+function draw(){nav();if(!$("#kb").innerHTML)keyUI();
  if(quiz)return play();
  if(tab===0){V.innerHTML=form(false)+`<p class="note">Banque intégrée. Si un niveau n'a pas assez de questions, utilise l'onglet IA.</p>`;
   $("#go").onclick=()=>{read();let p=B.filter(q=>q.c===cyc(S.lvl)&&q.m===S.mat);
@@ -77,14 +77,28 @@ function draw(){nav();
    start(shuf(p).slice(0,S.n),`${S.mat} · ${S.lvl}`)}}
  else if(tab===1){V.innerHTML=form(true);$("#go").onclick=()=>{read();gen(S.mat,S.lvl,S.n,S.topic,`${S.mat} · ${S.lvl}`)}}
  else devoirs()}
-async function ai(){try{const s=await claude.use("sample");return s}catch(e){return null}}
+let KEY="";try{KEY=localStorage.getItem("k")||""}catch(e){}
+async function ai(){
+ if(KEY)return{json:async p=>{
+  const r=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"content-type":"application/json","x-api-key":KEY,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},body:JSON.stringify({model:"claude-haiku-4-5-20251001",max_tokens:4000,messages:[{role:"user",content:p}]})});
+  if(!r.ok)throw new Error("HTTP "+r.status);
+  const d=await r.json();const t=d.content.map(x=>x.text||"").join("").replace(/```json|```/g,"").trim();
+  const m=t.match(/[\[{][\s\S]*[\]}]/);return JSON.parse(m?m[0]:t)}};
+ try{if(window.claude)return await window.claude.use("sample")}catch(e){}
+ return null}
+function keyUI(){const k=$("#kb");k.innerHTML=`<details class="c"${KEY?"":" open"}><summary><b>🔑 Clé API ${KEY?"(enregistrée ✓)":"(requise pour l'IA)"}</b></summary>
+ <label>Ta clé API Anthropic</label><input id="ki" type="password" placeholder="sk-ant-..." autocomplete="off" value="${KEY}">
+ <button class="b g" id="ks">Enregistrer</button><button class="b g" id="kd">Effacer</button>
+ <p class="note">La clé reste uniquement dans ton navigateur et n'est envoyée qu'à api.anthropic.com. Chaque génération est facturée sur ton compte. Ne la partage jamais. Crée-la sur console.anthropic.com.</p></details>`;
+ $("#ks").onclick=()=>{KEY=$("#ki").value.trim();try{localStorage.setItem("k",KEY)}catch(e){}keyUI()};
+ $("#kd").onclick=()=>{KEY="";try{localStorage.removeItem("k")}catch(e){}keyUI()}}
 async function gen(mat,lvl,n,topic,title,extra){
  const b=$("#go")||event?.target;if(b)b.disabled=true;const m=$("#msg");if(m)m.innerHTML=`<p class="note">Génération en cours… (5-60 s)</p>`;
- const s=await ai();if(!s){const t=`<p class="err">L'IA n'est pas disponible ici. Utilise les quiz préparés.</p>`;m?m.innerHTML=t:alert("IA indisponible");if(b)b.disabled=false;return}
+ const s=await ai();if(!s){const t=`<p class="err">Ajoute ta clé API en haut de la page pour utiliser l'IA.</p>`;m?m.innerHTML=t:alert("IA indisponible");if(b)b.disabled=false;return}
  try{const r=await s.json(`Tu es un professeur français. Crée un QCM de ${n} questions, niveau ${lvl}, matière ${mat}${topic?`, sur : ${topic}`:""}.${extra?` Contexte du devoir : ${extra}`:""} Adapte-toi au programme français. Réponds UNIQUEMENT par un tableau JSON d'objets {"q":"question","o":["4 choix"],"a":indexBonneRéponse(0-3),"e":"explication courte"}.`,{cache:false});
   const qs=(Array.isArray(r)?r:r.questions||[]).filter(x=>x.q&&Array.isArray(x.o)&&x.o.length>=2&&Number.isInteger(x.a)&&x.o[x.a]!==undefined);
   if(!qs.length)throw 0;start(qs,title)}
- catch(e){if($("#msg"))$("#msg").innerHTML=`<p class="err">La génération a échoué ou a été refusée. Réessaie.</p>`;else alert("Échec de la génération");if(b)b.disabled=false}}
+ catch(e){if($("#msg"))$("#msg").innerHTML=`<p class="err">La génération a échoué (clé invalide, crédit épuisé ou erreur réseau). Vérifie ta clé et réessaie.</p>`;else alert("Échec de la génération");if(b)b.disabled=false}}
 function play(){const q=quiz.qs[quiz.i];
  if(quiz.done){const p=Math.round(100*quiz.sc/quiz.qs.length);
   V.innerHTML=`<div class="c"><div class="big">${quiz.sc}/${quiz.qs.length}</div><p style="text-align:center">${p>=80?"Excellent 🎉":p>=50?"Pas mal, continue 💪":"Pas grave, on retente ! 📖"}</p><button class="b" onclick="quiz=null;draw()">Nouveau quiz</button></div>`;return}
@@ -104,7 +118,7 @@ function devoirs(){
  lst();
  $("#an").onclick=async()=>{S.lvl=$("#lvl").value;const t=$("#t").value.trim();if(!t)return;
   const b=$("#an");b.disabled=true;$("#msg").innerHTML=`<p class="note">Analyse en cours…</p>`;
-  const s=await ai();if(!s){$("#msg").innerHTML=`<p class="err">L'IA n'est pas disponible ici.</p>`;b.disabled=false;return}
+  const s=await ai();if(!s){$("#msg").innerHTML=`<p class="err">Ajoute ta clé API en haut de la page.</p>`;b.disabled=false;return}
   try{const r=await s.json(`Voici le cahier de texte d'un élève français (${S.lvl}). Extrais chaque devoir ou leçon à réviser. Réponds UNIQUEMENT par un tableau JSON d'objets {"matiere":"","devoir":"description courte","date":"date si indiquée sinon vide","sujet":"notion à réviser"}.\n\n${t}`,{cache:false});
    const a=(Array.isArray(r)?r:r.devoirs||[]).filter(x=>x.devoir);if(!a.length)throw 0;
    hw=a.map(x=>({...x,lvl:S.lvl}));try{localStorage.setItem("hw",JSON.stringify(hw))}catch(e){}
